@@ -14,11 +14,14 @@
         <java.version>17</java.version>
         <kotlin.version>1.9.21</kotlin.version>
         <aws.sdk.version>1.12.629</aws.sdk.version>
+        <!-- Parallel Scan works as expected with DynamoDBLocal 2.1.0, returns no items with 2.2.0  -->
+        <dynamodb-local.version>2.2.0</dynamodb-local.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <!-- see https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-project-maven.html -->
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-bom</artifactId>
                 <version>${aws.sdk.version}</version>
@@ -32,6 +35,11 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-dynamodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>DynamoDBLocal</artifactId>
+            <version>${dynamodb-local.version}</version>
         </dependency>
     </dependencies>
 
