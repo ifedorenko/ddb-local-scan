@@ -14,8 +14,9 @@
         <java.version>17</java.version>
         <kotlin.version>1.9.21</kotlin.version>
         <aws.sdk.version>1.12.629</aws.sdk.version>
-        <!-- Parallel Scan works as expected with DynamoDBLocal 2.1.0, returns no items with 2.2.0  -->
-        <dynamodb-local.version>2.2.0</dynamodb-local.version>
+        <!-- Parallel Scan works as expected with DynamoDBLocal 2.1.0, returns no items with 2.2.0 -->
+        <!-- The problem is fixed in 2.2.1 -->
+        <dynamodb-local.version>2.2.1</dynamodb-local.version>
     </properties>
 
     <dependencyManagement>
