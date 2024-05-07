@@ -8,12 +8,12 @@ import java.lang.Thread.sleep
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
-// attempts to catch ddb secondary index sort-key update in progress,
+// attempts to catch ddb secondary index hash-key update in progress,
 // i.e. either the item is present in the index with both old and new
 // index sk value or not present at all
 //
-// 2024-05-07 gsi index secondary key appears to be atomic
-//            317 updateCount=8606 queryCount=44905/45070 0
+// 2024-05-07 secondary index hash key update is not atomic, observed
+//            scan return two items and no items at all
 
 fun main() {
     val db = AmazonDynamoDBClientBuilder.standard().build()
@@ -40,35 +40,29 @@ fun main() {
 
 
     for (threadNo in 0..<10) thread(name = "Query thread $threadNo") {
-        val request = QueryRequest(tableName)
-            .withIndexName("idx")
-            .withKeyConditionExpression(
-                "#idx_hk = :idx_hk"
-            )
-            .withExpressionAttributeNames(
-                mapOf("#idx_hk" to "idx_hk")
-            )
-            .withExpressionAttributeValues(
-                mapOf(":idx_hk" to AttributeValue().withS("1"))
-            )
+        val request = ScanRequest(tableName).withIndexName("idx")
         while (true) {
             try {
-                val items = db.query(request).items
-                if (items.size != 1) {
-                    println("Gotcha! ${items.size}")
-                } else {
-                    when (items.single()["idx_sk"]!!.s) {
+                val result = db.scan(request)
+                val items = result.items
+                when (items.size) {
+                    0 -> if (result.lastEvaluatedKey == null) {
+                        println("Gotcha []!")
+                    }
+                    1 -> when (items.single()["idx_hk"]!!.s) {
                         "1" -> queryCount1.incrementAndGet()
                         "2" -> queryCount2.incrementAndGet()
                         else -> exceptionCount.incrementAndGet()
                     }
-//                    println("ok")
+                    2 -> {
+                        println("Gotcha ${items.map({ it["idx_hk"]!!.s})}!")
+                    }
+                    else -> println("WTF?")
                 }
             } catch (e: Exception) {
                 exceptionCount.incrementAndGet()
                 println("$threadNo ${e.message}")
             }
-//            sleep(1000)
         }
     }
 
@@ -80,8 +74,8 @@ fun main() {
             mapOf(
                 "hk" to AttributeValue("1"),
                 "sk" to AttributeValue("1"),
-                "idx_hk" to AttributeValue("1"),
-                "idx_sk" to AttributeValue("2"),
+                "idx_hk" to AttributeValue("2"),
+                "idx_sk" to AttributeValue("1"),
             ),
         )
         updateCount.incrementAndGet()
