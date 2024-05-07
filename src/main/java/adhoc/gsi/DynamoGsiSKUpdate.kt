@@ -13,7 +13,7 @@ import kotlin.concurrent.thread
 // index sk value or not present at all
 //
 // 2024-05-07 gsi index secondary key appears to be atomic
-//            317 updateCount=8606 queryCount=44905/45070 0
+//            201 updateCount=5634 queryCount=26072/26084 0
 
 fun main() {
     val db = AmazonDynamoDBClientBuilder.standard().build()
@@ -38,37 +38,30 @@ fun main() {
     val queryCount2 = AtomicLong(0)
     val exceptionCount = AtomicLong(0)
 
-
     for (threadNo in 0..<10) thread(name = "Query thread $threadNo") {
-        val request = QueryRequest(tableName)
-            .withIndexName("idx")
-            .withKeyConditionExpression(
-                "#idx_hk = :idx_hk"
-            )
-            .withExpressionAttributeNames(
-                mapOf("#idx_hk" to "idx_hk")
-            )
-            .withExpressionAttributeValues(
-                mapOf(":idx_hk" to AttributeValue().withS("1"))
-            )
+        val request = ScanRequest(tableName).withIndexName("idx")
         while (true) {
             try {
-                val items = db.query(request).items
-                if (items.size != 1) {
-                    println("Gotcha! ${items.size}")
-                } else {
-                    when (items.single()["idx_sk"]!!.s) {
+                val result = db.scan(request)
+                val items = result.items
+                when (items.size) {
+                    0 -> if (result.lastEvaluatedKey == null) {
+                        println("Gotcha []!")
+                    }
+                    1 -> when (items.single()["idx_sk"]!!.s) {
                         "1" -> queryCount1.incrementAndGet()
                         "2" -> queryCount2.incrementAndGet()
                         else -> exceptionCount.incrementAndGet()
                     }
-//                    println("ok")
+                    2 -> {
+                        println("Gotcha ${items.map({ it["idx_sk"]!!.s})}!")
+                    }
+                    else -> println("WTF?")
                 }
             } catch (e: Exception) {
                 exceptionCount.incrementAndGet()
                 println("$threadNo ${e.message}")
             }
-//            sleep(1000)
         }
     }
 
